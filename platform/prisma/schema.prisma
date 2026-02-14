@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  DRAFT
+  PLANNING
+  RENDERING
+  COMPLETED
+  FAILED
+}
+
+enum GenerationStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model Project {
+  id            String         @id @default(cuid())
+  title         String
+  synopsis      String?
+  protagonist   String
+  status        ProjectStatus  @default(DRAFT)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  script        Script?
+  scenes        Scene[]
+  generations   Generation[]
+}
+
+model Script {
+  id            String   @id @default(cuid())
+  projectId     String   @unique
+  rawText       String
+  promptPlan    Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Scene {
+  id            String       @id @default(cuid())
+  projectId     String
+  sceneNumber   Int
+  title         String?
+  summary       String?
+  targetSeconds Int?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  generations   Generation[]
+
+  @@unique([projectId, sceneNumber])
+  @@index([projectId])
+}
+
+model Generation {
+  id             String           @id @default(cuid())
+  projectId      String
+  sceneId        String
+  shotNumber     Int
+  clipNumber     Int
+  prompt         String
+  seed           Int
+  modelName      String
+  durationSec    Int
+  fps            Int
+  status         GenerationStatus @default(QUEUED)
+  comfyPromptId  String?
+  s3VideoKey     String?
+  s3FrameKey     String?
+  errorMessage   String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  project        Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene          Scene            @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@unique([sceneId, shotNumber, clipNumber])
+  @@index([projectId, status])
+  @@index([sceneId, status])
+}
